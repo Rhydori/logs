@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/term"
 )
 
@@ -33,12 +34,23 @@ type logEntry struct {
 }
 
 var rlog = logger{
-	logChan: make(chan logEntry, 128),
+	logChan: make(chan logEntry),
 }
 var colors logColors
 
+func enableANSI() {
+	h := windows.Handle(os.Stdout.Fd())
+
+	var mode uint32
+	windows.GetConsoleMode(h, &mode)
+	mode |= windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING
+	windows.SetConsoleMode(h, mode)
+}
+
 func init() {
 	if term.IsTerminal(int(os.Stdout.Fd())) {
+		enableANSI()
+
 		colors = logColors{
 			reset:  "\033[0m",
 			red:    "\033[31m",
