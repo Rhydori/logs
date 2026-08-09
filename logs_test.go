@@ -45,10 +45,10 @@ func TestAppendTimer(t *testing.T) {
 		secondFormat secondPrecision
 		want         string
 	}{
-		{"all-seconds", TIMER_HOUR | TIMER_MINUTE | TIMER_SECOND, SECPRECISION_SECOND, "14h05m06s"},
-		{"hour-minute", TIMER_HOUR | TIMER_MINUTE, SECPRECISION_SECOND, "14h05m"},
-		{"milliseconds", TIMER_SECOND, SECPRECISION_MILLI, "06s789ms"},
-		{"microseconds", TIMER_SECOND, SECPRECISION_MICRO, "06s789123us"},
+		{"all-seconds", TIMER_HOUR | TIMER_MINUTE | TIMER_SECOND, SECPRECISION_SECOND, "14h 5m 6s"},
+		{"hour-minute", TIMER_HOUR | TIMER_MINUTE, SECPRECISION_SECOND, "14h 5m"},
+		{"milliseconds", TIMER_SECOND, SECPRECISION_MILLI, "6.789ms"},
+		{"microseconds", TIMER_SECOND, SECPRECISION_MICRO, "6.789123us"},
 	}
 
 	for _, test := range tests {

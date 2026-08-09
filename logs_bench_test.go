@@ -126,7 +126,7 @@ func configureV2Default() {
 	SetFileLine(true)
 	SetDate(DATE_DAY_MONTH_YEAR)
 	SetTimer(TIMER_HOUR | TIMER_MINUTE | TIMER_SECOND)
-	SetSecondFormat(SECPRECISION_SECOND)
+	SetSecondPrecision(SECPRECISION_SECOND)
 }
 
 func configureV2Minimal() {

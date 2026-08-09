@@ -40,7 +40,7 @@ const (
 )
 
 const (
-	DATE_DAY_MONTH_YEAR date = iota
+	DATE_DAY_MONTH_YEAR date = iota + 1
 	DATE_DAY_MONTH
 	DATE_MONTH_YEAR
 )
@@ -88,7 +88,6 @@ var logger = state{
 	Write: WRITE_STDIO,
 
 	FileLine:     true,
-	Date:         DATE_DAY_MONTH_YEAR,
 	DateFormat:   DATEFORMAT_DAY_MONTH_YEAR,
 	Timer:        TIMER_HOUR | TIMER_MINUTE | TIMER_SECOND,
 	SecondFormat: SECPRECISION_SECOND,
@@ -125,7 +124,7 @@ func SetTimer(timer timer) {
 	logger.Timer = timer
 }
 
-func SetSecondFormat(format secondPrecision) {
+func SetSecondPrecision(format secondPrecision) {
 	logger.SecondFormat = format
 }
 
@@ -166,24 +165,24 @@ func createLog(level level, format string, args ...any) {
 	buffer = appendLevel(buffer, level)
 
 	// Message
-	buffer = append(buffer, '\'')
+	// buffer = append(buffer, '\'')
 	if len(args) > 0 {
 		buffer = fmt.Appendf(buffer, format, args...)
 	} else {
 		buffer = append(buffer, format...)
 	}
-	buffer = append(buffer, '\'')
+	// buffer = append(buffer, '\'')
 
 	// Separator
 	buffer = append(buffer, reset...)
-	buffer = append(buffer, " - "...)
+	buffer = append(buffer, " -- "...)
 
 	// FileLine
 	if logger.FileLine {
 		buffer = append(buffer, gray...)
 		buffer = appendCaller(buffer)
 		buffer = append(buffer, reset...)
-		buffer = append(buffer, " - "...)
+		buffer = append(buffer, " -- "...)
 	}
 
 	// Date
@@ -191,7 +190,7 @@ func createLog(level level, format string, args ...any) {
 		buffer = append(buffer, gray...)
 		buffer = appendDate(buffer, now)
 		buffer = append(buffer, reset...)
-		buffer = append(buffer, " - "...)
+		buffer = append(buffer, " -- "...)
 	}
 
 	// Time
@@ -240,6 +239,9 @@ func appendLevel(buffer []byte, level level) []byte {
 	}
 
 	buffer = append(buffer, level...)
+	for i := len(level); i < len(LEVEL_ERROR); i++ {
+		buffer = append(buffer, ' ')
+	}
 	buffer = append(buffer, ' ')
 
 	return buffer
@@ -280,25 +282,35 @@ func appendTimer(buffer []byte, now time.Time) []byte {
 	hour, minute, second := now.Clock()
 
 	if logger.Timer&TIMER_HOUR != 0 {
-		buffer = append2(buffer, hour)
+		buffer = strconv.AppendInt(buffer, int64(hour), 10)
 		buffer = append(buffer, 'h')
 	}
 
 	if logger.Timer&TIMER_MINUTE != 0 {
-		buffer = append2(buffer, minute)
+		if logger.Timer&TIMER_HOUR != 0 {
+			buffer = append(buffer, ' ')
+		}
+		buffer = strconv.AppendInt(buffer, int64(minute), 10)
 		buffer = append(buffer, 'm')
 	}
 
 	if logger.Timer&TIMER_SECOND != 0 {
-		buffer = append2(buffer, second)
-		buffer = append(buffer, 's')
+		if logger.Timer&(TIMER_HOUR|TIMER_MINUTE) != 0 {
+			buffer = append(buffer, ' ')
+		}
+		buffer = strconv.AppendInt(buffer, int64(second), 10)
 
 		switch logger.SecondFormat {
+		default:
+			buffer = append(buffer, 's')
+
 		case SECPRECISION_MILLI:
+			buffer = append(buffer, '.')
 			buffer = append3(buffer, now.Nanosecond()/1e6)
 			buffer = append(buffer, "ms"...)
 
 		case SECPRECISION_MICRO:
+			buffer = append(buffer, '.')
 			buffer = append6(buffer, now.Nanosecond()/1e3)
 			buffer = append(buffer, "us"...)
 		}
@@ -324,14 +336,6 @@ func writeInStd(buffer []byte) {
 	if logger.Write&WRITE_STDERR != 0 {
 		os.Stderr.Write(buffer)
 	}
-}
-
-func append2(buffer []byte, value int) []byte {
-	return append(
-		buffer,
-		byte('0'+value/10),
-		byte('0'+value%10),
-	)
 }
 
 func append3(buffer []byte, value int) []byte {
