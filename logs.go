@@ -173,22 +173,22 @@ func createLog(level level, format string, args ...any) {
 
 	// Message
 	appendMessage(buffer, level, format, args...)
-	appendSeparator(buffer)
 
 	// FileLine
 	if logger.FileLine {
-		appendCaller(buffer)
 		appendSeparator(buffer)
+		appendCaller(buffer)
 	}
 
 	// Date
 	if logger.Date != 0 {
-		appendDate(buffer, now)
 		appendSeparator(buffer)
+		appendDate(buffer, now)
 	}
 
 	// Time
 	if logger.Timer != 0 {
+		appendSeparator(buffer)
 		appendTimer(buffer, now)
 	}
 
