@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	. "github.com/rhydori/logs"
 	"github.com/rs/zerolog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
