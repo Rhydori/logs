@@ -115,7 +115,7 @@ func BenchmarkDisabledDebug(b *testing.B) {
 	SetWrite(0)
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Debug("hello")
 	}
 }
