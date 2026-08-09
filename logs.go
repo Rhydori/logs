@@ -32,6 +32,8 @@ const (
 	WRITE_STDERR
 )
 
+const levelWidth = 5
+
 const (
 	LEVEL_INFO  level = "INFO"
 	LEVEL_ERROR level = "ERROR"
@@ -76,11 +78,12 @@ type state struct {
 	Mode  mode
 	Write write
 
-	FileLine     bool
-	Date         date
-	DateFormat   dateFormat
-	Timer        timer
-	SecondFormat secondPrecision
+	MessageLevelColor bool
+	FileLine          bool
+	Date              date
+	DateFormat        dateFormat
+	Timer             timer
+	SecondFormat      secondPrecision
 }
 
 var logger = state{
@@ -95,7 +98,7 @@ var logger = state{
 
 var bufferPool = sync.Pool{
 	New: func() any {
-		buffer := make([]byte, 0, 256)
+		buffer := make([]byte, 0, 512)
 		return &buffer
 	},
 }
@@ -108,8 +111,12 @@ func SetWrite(flags write) {
 	logger.Write = flags
 }
 
-func SetFileLine(caller bool) {
-	logger.FileLine = caller
+func SetMessageLevelColor(enabled bool) {
+	logger.MessageLevelColor = enabled
+}
+
+func SetFileLine(enabled bool) {
+	logger.FileLine = enabled
 }
 
 func SetDate(date date) {
@@ -158,96 +165,83 @@ func createLog(level level, format string, args ...any) {
 		now = time.Now()
 	}
 
-	bufferPointer := getBuffer()
-	buffer := (*bufferPointer)[:0]
+	buffer := getBuffer()
 
 	// Level
-	buffer = appendLevel(buffer, level)
+	appendLevel(buffer, level)
+	appendSeparator(buffer)
 
 	// Message
-	// buffer = append(buffer, '\'')
-	if len(args) > 0 {
-		buffer = fmt.Appendf(buffer, format, args...)
-	} else {
-		buffer = append(buffer, format...)
-	}
-	// buffer = append(buffer, '\'')
-
-	// Separator
-	buffer = append(buffer, reset...)
-	buffer = append(buffer, " -- "...)
+	appendMessage(buffer, level, format, args...)
+	appendSeparator(buffer)
 
 	// FileLine
 	if logger.FileLine {
-		buffer = append(buffer, gray...)
-		buffer = appendCaller(buffer)
-		buffer = append(buffer, reset...)
-		buffer = append(buffer, " -- "...)
+		appendCaller(buffer)
+		appendSeparator(buffer)
 	}
 
 	// Date
 	if logger.Date != 0 {
-		buffer = append(buffer, gray...)
-		buffer = appendDate(buffer, now)
-		buffer = append(buffer, reset...)
-		buffer = append(buffer, " -- "...)
+		appendDate(buffer, now)
+		appendSeparator(buffer)
 	}
 
 	// Time
 	if logger.Timer != 0 {
-		buffer = append(buffer, gray...)
-		buffer = appendTimer(buffer, now)
-		buffer = append(buffer, reset...)
+		appendTimer(buffer, now)
 	}
 
-	// New Line
-	buffer = append(buffer, '\n')
+	// Reset + New Line
+	*buffer = append(*buffer, reset...)
+	*buffer = append(*buffer, '\n')
 
 	writeInStd(buffer)
 
-	*bufferPointer = buffer
-	putBuffer(bufferPointer)
+	putBuffer(buffer)
 }
 
-func appendCaller(buffer []byte) []byte {
+func appendLevel(buffer *[]byte, level level) {
+	appendLevelColor(buffer, level)
+
+	*buffer = append(*buffer, level...)
+
+	for i := len(level); i < levelWidth; i++ {
+		*buffer = append(*buffer, ' ')
+	}
+}
+
+func appendMessage(buffer *[]byte, level level, format string, args ...any) {
+	if logger.MessageLevelColor {
+		appendLevelColor(buffer, level)
+	}
+
+	if len(args) > 0 {
+		*buffer = fmt.Appendf(*buffer, format, args...)
+	} else {
+		*buffer = append(*buffer, format...)
+	}
+}
+
+func appendCaller(buffer *[]byte) {
 	var pcs [1]uintptr
 	if runtime.Callers(4, pcs[:]) == 0 {
-		return buffer
+		return
 	}
 
 	function := runtime.FuncForPC(pcs[0])
 	if function == nil {
-		return buffer
+		return
 	}
 
+	*buffer = append(*buffer, gray...)
 	file, line := function.FileLine(pcs[0])
-	buffer = append(buffer, filepath.Base(file)...)
-	buffer = append(buffer, ':')
-	return strconv.AppendInt(buffer, int64(line), 10)
+	*buffer = append(*buffer, filepath.Base(file)...)
+	*buffer = append(*buffer, ':')
+	*buffer = strconv.AppendInt(*buffer, int64(line), 10)
 }
 
-func appendLevel(buffer []byte, level level) []byte {
-	switch level {
-	case LEVEL_INFO:
-		buffer = append(buffer, green...)
-	case LEVEL_ERROR:
-		buffer = append(buffer, red...)
-	case LEVEL_WARN:
-		buffer = append(buffer, yellow...)
-	case LEVEL_DEBUG:
-		buffer = append(buffer, purple...)
-	}
-
-	buffer = append(buffer, level...)
-	for i := len(level); i < len(LEVEL_ERROR); i++ {
-		buffer = append(buffer, ' ')
-	}
-	buffer = append(buffer, ' ')
-
-	return buffer
-}
-
-func appendDate(buffer []byte, now time.Time) []byte {
+func appendDate(buffer *[]byte, now time.Time) {
 	layout := ""
 	switch logger.Date {
 	case DATE_DAY_MONTH_YEAR:
@@ -275,53 +269,72 @@ func appendDate(buffer []byte, now time.Time) []byte {
 		}
 	}
 
-	return now.AppendFormat(buffer, layout)
+	*buffer = append(*buffer, gray...)
+	*buffer = now.AppendFormat(*buffer, layout)
 }
 
-func appendTimer(buffer []byte, now time.Time) []byte {
-	hour, minute, second := now.Clock()
+func appendTimer(buffer *[]byte, now time.Time) {
+	*buffer = append(*buffer, gray...)
 
+	hour, minute, second := now.Clock()
 	if logger.Timer&TIMER_HOUR != 0 {
-		buffer = strconv.AppendInt(buffer, int64(hour), 10)
-		buffer = append(buffer, 'h')
+		*buffer = strconv.AppendInt(*buffer, int64(hour), 10)
+		*buffer = append(*buffer, 'h')
 	}
 
 	if logger.Timer&TIMER_MINUTE != 0 {
 		if logger.Timer&TIMER_HOUR != 0 {
-			buffer = append(buffer, ' ')
+			*buffer = append(*buffer, ' ')
 		}
-		buffer = strconv.AppendInt(buffer, int64(minute), 10)
-		buffer = append(buffer, 'm')
+		*buffer = strconv.AppendInt(*buffer, int64(minute), 10)
+		*buffer = append(*buffer, 'm')
 	}
 
 	if logger.Timer&TIMER_SECOND != 0 {
 		if logger.Timer&(TIMER_HOUR|TIMER_MINUTE) != 0 {
-			buffer = append(buffer, ' ')
+			*buffer = append(*buffer, ' ')
 		}
-		buffer = strconv.AppendInt(buffer, int64(second), 10)
+		*buffer = strconv.AppendInt(*buffer, int64(second), 10)
 
 		switch logger.SecondFormat {
 		default:
-			buffer = append(buffer, 's')
+			*buffer = append(*buffer, 's')
 
 		case SECPRECISION_MILLI:
-			buffer = append(buffer, '.')
-			buffer = append3(buffer, now.Nanosecond()/1e6)
-			buffer = append(buffer, "ms"...)
+			*buffer = append(*buffer, '.')
+			append3(buffer, now.Nanosecond()/1e6)
+			*buffer = append(*buffer, "ms"...)
 
 		case SECPRECISION_MICRO:
-			buffer = append(buffer, '.')
-			buffer = append6(buffer, now.Nanosecond()/1e3)
-			buffer = append(buffer, "us"...)
+			*buffer = append(*buffer, '.')
+			append6(buffer, now.Nanosecond()/1e3)
+			*buffer = append(*buffer, "us"...)
 		}
 	}
+}
 
-	return buffer
+func appendSeparator(buffer *[]byte) {
+	*buffer = append(*buffer, reset...)
+	*buffer = append(*buffer, " -- "...)
+}
+
+func appendLevelColor(buffer *[]byte, level level) {
+	switch level {
+	case LEVEL_INFO:
+		*buffer = append(*buffer, green...)
+	case LEVEL_ERROR:
+		*buffer = append(*buffer, red...)
+	case LEVEL_WARN:
+		*buffer = append(*buffer, yellow...)
+	case LEVEL_DEBUG:
+		*buffer = append(*buffer, purple...)
+	}
 }
 
 func getBuffer() *[]byte {
 	buffer := bufferPool.Get().(*[]byte)
 	*buffer = (*buffer)[:0]
+
 	return buffer
 }
 
@@ -329,27 +342,27 @@ func putBuffer(buffer *[]byte) {
 	bufferPool.Put(buffer)
 }
 
-func writeInStd(buffer []byte) {
+func writeInStd(buffer *[]byte) {
 	if logger.Write&WRITE_STDIO != 0 {
-		os.Stdout.Write(buffer)
+		os.Stdout.Write(*buffer)
 	}
 	if logger.Write&WRITE_STDERR != 0 {
-		os.Stderr.Write(buffer)
+		os.Stderr.Write(*buffer)
 	}
 }
 
-func append3(buffer []byte, value int) []byte {
-	return append(
-		buffer,
+func append3(buffer *[]byte, value int) {
+	*buffer = append(
+		*buffer,
 		byte('0'+value/100),
 		byte('0'+(value/10)%10),
 		byte('0'+value%10),
 	)
 }
 
-func append6(buffer []byte, value int) []byte {
-	return append(
-		buffer,
+func append6(buffer *[]byte, value int) {
+	*buffer = append(
+		*buffer,
 		byte('0'+value/100000),
 		byte('0'+(value/10000)%10),
 		byte('0'+(value/1000)%10),

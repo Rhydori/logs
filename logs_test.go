@@ -29,8 +29,12 @@ func TestAppendDate(t *testing.T) {
 			logger.DateFormat = test.format
 			t.Cleanup(func() { logger = previous })
 
-			got := string(appendDate(nil, timeValue))
-			if got != test.want {
+			var buffer []byte
+			appendDate(&buffer, timeValue)
+
+			got := string(buffer)
+			want := gray + test.want
+			if got != want {
 				t.Fatalf("appendDate() = %q, want %q", got, test.want)
 			}
 		})
@@ -58,8 +62,12 @@ func TestAppendTimer(t *testing.T) {
 			logger.SecondFormat = test.secondFormat
 			t.Cleanup(func() { logger = previous })
 
-			got := string(appendTimer(nil, timeValue))
-			if got != test.want {
+			var buffer []byte
+			appendTimer(&buffer, timeValue)
+
+			got := string(buffer)
+			want := gray + test.want
+			if got != want {
 				t.Fatalf("appendTimer() = %q, want %q", got, test.want)
 			}
 		})
