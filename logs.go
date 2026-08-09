@@ -223,19 +223,25 @@ func appendMessage(buffer *[]byte, level level, format string, args ...any) {
 	}
 }
 
+//go:noinline
 func appendCaller(buffer *[]byte) {
 	var pcs [1]uintptr
 	if runtime.Callers(4, pcs[:]) == 0 {
 		return
 	}
+	pc := pcs[0]
+	if pc > 0 {
+		pc--
+	}
 
-	function := runtime.FuncForPC(pcs[0])
+	function := runtime.FuncForPC(pc)
 	if function == nil {
 		return
 	}
 
+	file, line := function.FileLine(pc)
+
 	*buffer = append(*buffer, gray...)
-	file, line := function.FileLine(pcs[0])
 	*buffer = append(*buffer, filepath.Base(file)...)
 	*buffer = append(*buffer, ':')
 	*buffer = strconv.AppendInt(*buffer, int64(line), 10)
