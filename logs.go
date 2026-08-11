@@ -72,6 +72,7 @@ const (
 	green  = "\033[32m"
 	yellow = "\033[33m"
 	purple = "\033[35m"
+	cyan   = "\033[36m"
 )
 
 type state struct {
@@ -141,11 +142,6 @@ func Info(format string, args ...any) {
 }
 
 //go:noinline
-func Error(format string, args ...any) {
-	createLog(LEVEL_ERROR, format, args...)
-}
-
-//go:noinline
 func Warn(format string, args ...any) {
 	createLog(LEVEL_WARN, format, args...)
 }
@@ -153,6 +149,25 @@ func Warn(format string, args ...any) {
 //go:noinline
 func Debug(format string, args ...any) {
 	createLog(LEVEL_DEBUG, format, args...)
+}
+
+//go:noinline
+func Error(format any, args ...any) error {
+	switch value := format.(type) {
+	case string:
+		createLog(LEVEL_ERROR, value, args...)
+		for _, arg := range args {
+			if err, ok := arg.(error); ok {
+				return err
+			}
+		}
+
+	case error:
+		createLog(LEVEL_ERROR, "%s", value)
+		return value
+	}
+
+	return nil
 }
 
 func createLog(level level, format string, args ...any) {
@@ -328,12 +343,12 @@ func appendLevelColor(buffer *[]byte, level level) {
 	switch level {
 	case LEVEL_INFO:
 		*buffer = append(*buffer, green...)
-	case LEVEL_ERROR:
-		*buffer = append(*buffer, red...)
 	case LEVEL_WARN:
 		*buffer = append(*buffer, yellow...)
 	case LEVEL_DEBUG:
-		*buffer = append(*buffer, purple...)
+		*buffer = append(*buffer, cyan...)
+	case LEVEL_ERROR:
+		*buffer = append(*buffer, red...)
 	}
 }
 
