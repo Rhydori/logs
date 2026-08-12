@@ -18,7 +18,7 @@ type (
 
 	date            uint8
 	dateFormat      uint8
-	timer           uint16
+	timer           struct{ hour, minute, second bool }
 	secondPrecision uint8
 )
 
@@ -51,12 +51,6 @@ const (
 	DATEFORMAT_DAY_MONTH_YEAR dateFormat = iota
 	DATEFORMAT_MONTH_DAY_YEAR
 	DATEFORMAT_YEAR_MONTH_DAY
-)
-
-const (
-	TIMER_HOUR timer = 1 << iota
-	TIMER_MINUTE
-	TIMER_SECOND
 )
 
 const (
@@ -93,7 +87,6 @@ var logger = state{
 
 	FileLine:     true,
 	DateFormat:   DATEFORMAT_DAY_MONTH_YEAR,
-	Timer:        TIMER_HOUR | TIMER_MINUTE | TIMER_SECOND,
 	SecondFormat: SECPRECISION_SECOND,
 }
 
@@ -128,8 +121,8 @@ func SetDateFormat(format dateFormat) {
 	logger.DateFormat = format
 }
 
-func SetTimer(timer timer) {
-	logger.Timer = timer
+func SetTimer(hour bool, minute bool, second bool) {
+	logger.Timer = timer{hour: hour, minute: minute, second: second}
 }
 
 func SetSecondPrecision(format secondPrecision) {
@@ -176,7 +169,7 @@ func createLog(level level, format string, args ...any) {
 	}
 
 	var now time.Time
-	if logger.Date != 0 || logger.Timer != 0 {
+	if logger.Date != 0 || logger.Timer != (timer{}) {
 		now = time.Now()
 	}
 
@@ -202,7 +195,7 @@ func createLog(level level, format string, args ...any) {
 	}
 
 	// Time
-	if logger.Timer != 0 {
+	if logger.Timer != (timer{}) {
 		appendSeparator(buffer)
 		appendTimer(buffer, now)
 	}
@@ -298,21 +291,21 @@ func appendTimer(buffer *[]byte, now time.Time) {
 	*buffer = append(*buffer, gray...)
 
 	hour, minute, second := now.Clock()
-	if logger.Timer&TIMER_HOUR != 0 {
+	if logger.Timer.hour {
 		*buffer = strconv.AppendInt(*buffer, int64(hour), 10)
 		*buffer = append(*buffer, 'h')
 	}
 
-	if logger.Timer&TIMER_MINUTE != 0 {
-		if logger.Timer&TIMER_HOUR != 0 {
+	if logger.Timer.minute {
+		if logger.Timer.hour {
 			*buffer = append(*buffer, ' ')
 		}
 		*buffer = strconv.AppendInt(*buffer, int64(minute), 10)
 		*buffer = append(*buffer, 'm')
 	}
 
-	if logger.Timer&TIMER_SECOND != 0 {
-		if logger.Timer&(TIMER_HOUR|TIMER_MINUTE) != 0 {
+	if logger.Timer.second {
+		if logger.Timer.hour || logger.Timer.minute {
 			*buffer = append(*buffer, ' ')
 		}
 		*buffer = strconv.AppendInt(*buffer, int64(second), 10)
