@@ -32,8 +32,6 @@ const (
 	WRITE_STDERR
 )
 
-const levelWidth = 5
-
 const (
 	LEVEL_INFO  level = "INFO"
 	LEVEL_ERROR level = "ERROR"
@@ -213,10 +211,6 @@ func appendLevel(buffer *[]byte, level level) {
 	appendLevelColor(buffer, level)
 
 	*buffer = append(*buffer, level...)
-
-	for i := len(level); i < levelWidth; i++ {
-		*buffer = append(*buffer, ' ')
-	}
 }
 
 func appendMessage(buffer *[]byte, level level, format string, args ...any) {
